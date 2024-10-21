@@ -1,0 +1,122 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' // Ensure you're using ForgeGradle 6.x for Minecraft 1.20.1+
+}
+
+version = '1.0'
+group = 'com.kenai.mod'
+
+base {
+    archivesName = 'recipe_extractor_mod'
+}
+
+// Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
+
+minecraft {
+    // Use official mappings for Minecraft 1.20.1
+    mappings channel: 'official', version: '1.20.1'
+
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+
+            // Recommended logging settings
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "recipe_extractor_mod" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', 'recipe_extractor_mod'
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', 'recipe_extractor_mod'
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', 'recipe_extractor_mod'
+        }
+
+        data {
+            workingDirectory project.file('run-data')
+            args '--mod', 'recipe_extractor_mod', '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+repositories {
+    // Default repositories should include Maven Central and Forge Maven
+}
+
+dependencies {
+    // Minecraft and Forge version for 1.20.1 with Forge 47.3.10
+    minecraft "net.minecraftforge:forge:1.20.1-47.3.10"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: '1.20.1', 
+            minecraft_version_range: '[1.20.1,)', 
+            forge_version: '47.3.10', 
+            forge_version_range: '[47.3.10,)', 
+            mod_id: 'recipe_extractor_mod', 
+            mod_name: 'Recipe Extractor Mod', 
+            mod_license: 'MIT', 
+            mod_version: '1.0',
+            mod_authors: 'Kenai', 
+            mod_description: 'A mod to extract all item names and recipes from Minecraft 1.20.1.'
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+                'Specification-Title'     : 'recipe_extractor_mod',
+                'Specification-Vendor'    : 'Kenai',
+                'Specification-Version'   : '1', 
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : 'Kenai',
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/mcmodsrepo"
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
